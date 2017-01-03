@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM       centos:centos7
+FROM openjdk:8-jre-alpine
 
-MAINTAINER Sonatype <cloud-ops@sonatype.com>
+MAINTAINER Andre Vanha <andre@askitservices.com
 
 LABEL vendor=Sonatype \
   com.sonatype.license="Apache License, Version 2.0" \
@@ -23,15 +23,18 @@ LABEL vendor=Sonatype \
 ARG NEXUS_VERSION=3.2.0-01
 ARG NEXUS_DOWNLOAD_URL=https://download.sonatype.com/nexus/3/nexus-${NEXUS_VERSION}-unix.tar.gz
 
-RUN yum install -y \
-  curl tar \
-  && yum clean all
+#RUN yum install -y \
+#  curl tar \
+#  && yum clean all
+
+# We need curl, and the latest version of tar to support the --strip-components option
+RUN apk add --update curl tar
 
 # configure java runtime
-ENV JAVA_HOME=/opt/java \
-  JAVA_VERSION_MAJOR=8 \
-  JAVA_VERSION_MINOR=112 \
-  JAVA_VERSION_BUILD=15
+#ENV JAVA_HOME=/opt/java \
+#  JAVA_VERSION_MAJOR=8 \
+#  JAVA_VERSION_MINOR=112 \
+#  JAVA_VERSION_BUILD=15
 
 # configure nexus runtime
 ENV SONATYPE_DIR=/opt/sonatype
@@ -41,13 +44,13 @@ ENV NEXUS_HOME=${SONATYPE_DIR}/nexus \
   SONATYPE_WORK=${SONATYPE_DIR}/sonatype-work
 
 # install Oracle JRE
-RUN mkdir -p /opt \
-  && curl --fail --silent --location --retry 3 \
-  --header "Cookie: oraclelicense=accept-securebackup-cookie; " \
-  http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-b${JAVA_VERSION_BUILD}/server-jre-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar.gz \
-  | gunzip \
-  | tar -x -C /opt \
-  && ln -s /opt/jdk1.${JAVA_VERSION_MAJOR}.0_${JAVA_VERSION_MINOR} ${JAVA_HOME}
+#RUN mkdir -p /opt \
+#  && curl --fail --silent --location --retry 3 \
+#  --header "Cookie: oraclelicense=accept-securebackup-cookie; " \
+#  http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-b${JAVA_VERSION_BUILD}/server-jre-${JAVA_VERSION_MAJOR}u${JAVA_VERSION_MINOR}-linux-x64.tar.gz \
+#  | gunzip \
+#  | tar -x -C /opt \
+#  && ln -s /opt/jdk1.${JAVA_VERSION_MAJOR}.0_${JAVA_VERSION_MINOR} ${JAVA_HOME}
 
 # install nexus
 RUN mkdir -p ${NEXUS_HOME} \
@@ -57,12 +60,15 @@ RUN mkdir -p ${NEXUS_HOME} \
   | tar x -C ${NEXUS_HOME} --strip-components=1 nexus-${NEXUS_VERSION} \
   && chown -R root:root ${NEXUS_HOME}
 
+RUN rm -rf /var/cache/apk/*
+
 # configure nexus
 RUN sed \
     -e '/^nexus-context/ s:$:${NEXUS_CONTEXT}:' \
     -i ${NEXUS_HOME}/etc/nexus-default.properties
 
-RUN useradd -r -u 200 -m -c "nexus role account" -d ${NEXUS_DATA} -s /bin/false nexus \
+#RUN useradd -r -u 200 -m -c "nexus role account" -d ${NEXUS_DATA} -s /bin/false nexus \
+RUN adduser -u 90 -h ${NEXUS_DATA} -s /bin/false -D nexus \
   && mkdir -p ${NEXUS_DATA}/etc ${NEXUS_DATA}/log ${NEXUS_DATA}/tmp ${SONATYPE_WORK} \
   && ln -s ${NEXUS_DATA} ${SONATYPE_WORK}/nexus3 \
   && chown -R nexus:nexus ${NEXUS_DATA}
